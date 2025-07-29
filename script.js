@@ -15,8 +15,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadLink = document.getElementById('downloadLink');
     const messageDiv = document.getElementById('message');
 
+    // Yeni: Görsel yükleme durumunu göstermek için bir span ekledik (index.html'e de eklemelisin eğer yoksa)
+    const imageLoadingStatus = document.createElement('span');
+    imageLoadingStatus.id = 'imageLoadingStatus';
+    imageLoadingStatus.style.display = 'none';
+    imageLoadingStatus.style.color = 'orange';
+    imageLoadingStatus.style.fontSize = '0.9em';
+    imageLoadingStatus.textContent = 'Görsel yükleniyor...';
+    selectedFileNameDisplay.parentNode.insertBefore(imageLoadingStatus, selectedFileNameDisplay.nextSibling);
+
+
     let currentFile = null;
     let originalImage = null; // Used for image conversions on canvas
+    let imageLoadPromise = null; // Görselin yüklenip yüklenmediğini takip etmek için
 
     // Define conversion types available for each file type
     const CONVERSION_OPTIONS = {
@@ -28,7 +39,6 @@ document.addEventListener('DOMContentLoaded', () => {
         'text': [ // For specific text file types (e.g., text/plain, application/json)
             { value: 'text_to_base64', label: 'Metinden Base64\'e' },
             { value: 'base64_to_text', label: 'Base64\'ten Metine' }
-            // Add more client-side text conversions if feasible (e.g., Markdown to HTML, JSON to CSV)
         ],
         'application/zip': [
             { value: 'unzip', label: 'ZIP Dosyasını Aç' }
@@ -65,6 +75,8 @@ document.addEventListener('DOMContentLoaded', () => {
         downloadLink.href = '#';
         downloadLink.download = 'converted_file';
         originalImage = null; // Clear loaded image
+        imageLoadPromise = null; // Reset image load promise
+        imageLoadingStatus.style.display = 'none'; // Hide loading status
     }
 
     /** Populates the conversion type dropdown based on the selected file's MIME type. */
@@ -79,7 +91,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (fileType === 'application/zip') {
             options = CONVERSION_OPTIONS['application/zip'];
         } else {
-            // For any other file type, offer general options like Base64 encoding
             options = CONVERSION_OPTIONS['default'];
         }
 
@@ -90,7 +101,6 @@ document.addEventListener('DOMContentLoaded', () => {
             conversionTypeSelect.appendChild(opt);
         });
 
-        // Enable/disable dropdown and button based on whether options are available
         conversionTypeSelect.disabled = options.length === 0;
         performConversionButton.disabled = options.length === 0;
     }
@@ -100,32 +110,48 @@ document.addEventListener('DOMContentLoaded', () => {
     fileInput.addEventListener('change', async (event) => {
         currentFile = event.target.files[0];
         hideMessage();
-        resetResultArea();
+        resetResultArea(); // Tüm sonuç ve yükleme durumlarını sıfırla
 
         if (currentFile) {
             selectedFileNameDisplay.textContent = `Seçilen Dosya: ${currentFile.name} (${(currentFile.size / 1024).toFixed(2)} KB)`;
 
             populateConversionOptions(currentFile.type);
 
-            // Immediately preview images
             if (currentFile.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    imagePreview.src = e.target.result;
-                    imagePreviewContainer.style.display = 'block';
-                    imagePreview.style.display = 'block'; 
+                imageLoadingStatus.style.display = 'inline'; // Görsel yükleme durumunu göster
 
-                    originalImage = new Image();
-                    originalImage.onload = () => {
-                        imageCanvas.width = originalImage.width;
-                        imageCanvas.height = originalImage.height;
+                imageLoadPromise = new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        imagePreview.src = e.target.result;
+                        imagePreviewContainer.style.display = 'block';
+                        imagePreview.style.display = 'block'; 
+
+                        originalImage = new Image();
+                        originalImage.onload = () => {
+                            imageCanvas.width = originalImage.width;
+                            imageCanvas.height = originalImage.height;
+                            imageLoadingStatus.style.display = 'none'; // Yüklendiğinde gizle
+                            resolve(); // Promise'i çöz
+                        };
+                        originalImage.onerror = () => { // Görselin kendisi yüklenirken hata olursa
+                            imageLoadingStatus.style.display = 'none';
+                            showMessage("Görsel önizlemesi yüklenemedi veya bozuk.", "error");
+                            originalImage = null;
+                            reject(new Error("Görsel geçerli değil veya yüklenemedi.")); // Promise'i reddet
+                        };
+                        originalImage.src = e.target.result;
                     };
-                    originalImage.src = e.target.result;
-                };
-                reader.onerror = (e) => {
-                    showMessage("Görsel önizlemesi yüklenemedi.", "error");
-                };
-                reader.readAsDataURL(currentFile);
+                    reader.onerror = (e) => { // FileReader hatası olursa
+                        imageLoadingStatus.style.display = 'none';
+                        showMessage("Dosya okunurken hata oluştu. Lütfen geçerli bir dosya yükleyin.", "error");
+                        originalImage = null;
+                        reject(new Error("Dosya okuma hatası.")); // Promise'i reddet
+                    };
+                    reader.readAsDataURL(currentFile);
+                });
+            } else {
+                imageLoadingStatus.style.display = 'none'; // Görsel değilse yükleme durumunu gizle
             }
 
         } else {
@@ -154,6 +180,14 @@ document.addEventListener('DOMContentLoaded', () => {
         performConversionButton.textContent = "İşleniyor..."; // Show loading text
 
         try {
+            // Eğer görsel yüklüyorsak, görselin yüklenmesini bekle
+            if (currentFile.type.startsWith('image/') && imageLoadPromise) {
+                await imageLoadPromise; // Görselin başarılı bir şekilde yüklendiğinden emin ol
+                if (!originalImage) { // Promise çözüldü ama görsel hala nullsa bir hata var demektir
+                    throw new Error("Görsel hazırlığı tamamlanamadı. Lütfen tekrar deneyin.");
+                }
+            }
+            
             resultArea.style.display = 'block'; // Make the main result container visible
 
             if (currentFile.type.startsWith('image/') && selectedConversion.startsWith('image/')) {
@@ -167,8 +201,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             else {
                 showMessage("Bu dönüştürme seçeneği desteklenmiyor veya henüz uygulanmadı.", "error");
+                // Hata mesajı zaten gösterildiği için burada throw etmiyoruz, sadece finally'ye geçiyoruz
             }
-            // Only show success if no specific error was thrown above
+            
+            // Eğer üstteki if/else blokları bir hata fırlatmadıysa ve mesaj gösterilmediyse başarı mesajı göster
             if (messageDiv.style.display !== 'block' || messageDiv.classList.contains('success')) {
                 showMessage("İşlem başarıyla tamamlandı!", "success");
             }
@@ -176,9 +212,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             console.error("Dönüştürme/İşlem Hatası:", error);
-            // If message isn't already set by a specific function, show general error
+            // Eğer mesaj zaten belirli bir hata fonksiyonu tarafından ayarlanmamışsa genel hata mesajını göster
             if (messageDiv.style.display !== 'block' || messageDiv.classList.contains('success')) {
-                 showMessage(`Bir hata oluştu: ${error.message}`, "error");
+                 showMessage(`Bir hata oluştu: ${error.message}. Lütfen tarayıcı konsolunu kontrol edin.`, "error");
             }
         } finally {
             performConversionButton.disabled = false; // Re-enable button
@@ -190,32 +226,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /** Handles image format conversion (JPG, PNG, WebP). */
     async function convertImage(file, targetFormat) {
-        if (!originalImage) {
-            showMessage("Görsel yüklenirken bir hata oluştu veya görsel geçerli değil.", "error");
-            throw new Error("Invalid image for conversion.");
+        if (!originalImage) { // Bu kontrol artık teorik olarak imageLoadPromise sayesinde daha az tetiklenmeli
+            showMessage("Dönüştürme için geçerli görsel bulunamadı.", "error");
+            throw new Error("Invalid image for conversion (originalImage is null).");
         }
 
         ctx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
         ctx.drawImage(originalImage, 0, 0, imageCanvas.width, imageCanvas.height);
 
-        // Quality (0-1) only applies to image/jpeg and image/webp
         const quality = 0.9; 
 
         try {
             const dataURL = imageCanvas.toDataURL(targetFormat, quality);
 
             downloadLink.href = dataURL;
-            // Infer filename extension from targetFormat (e.g., "png" from "image/png")
             const extension = targetFormat.split('/')[1].split('+')[0];
             const originalFileName = file.name.split('.')[0];
             downloadLink.download = `${originalFileName}_converted.${extension}`;
-            downloadLink.style.display = 'inline-block'; // Make download link visible
-            imagePreviewContainer.style.display = 'block'; // Show image preview container
-            imagePreview.src = dataURL; // Update preview with converted image
+            downloadLink.style.display = 'inline-block';
+            imagePreviewContainer.style.display = 'block';
+            imagePreview.src = dataURL;
         } catch (error) {
             console.error("Image conversion error:", error);
             showMessage(`Görsel dönüştürülürken hata oluştu: ${error.message}. Desteklenmeyen bir format olabilir.`, "error");
-            throw error; // Re-throw to be caught by the main try/catch
+            throw error;
         }
     }
 
@@ -225,24 +259,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const zip = new JSZip();
             const contents = await zip.loadAsync(file);
 
-            zipContentListDiv.style.display = 'block'; // Show ZIP content list area
-            zipFileListUl.innerHTML = ''; // Clear previous list
+            zipContentListDiv.style.display = 'block';
+            zipFileListUl.innerHTML = '';
 
             let fileCount = 0;
-            // Iterate through files in the ZIP archive
             for (const filename in contents.files) {
-                if (!contents.files[filename].dir) { // Only process actual files (not directories)
+                if (!contents.files[filename].dir) {
                     fileCount++;
                     const li = document.createElement('li');
                     const downloadBtn = document.createElement('a');
                     downloadBtn.textContent = filename;
-                    downloadBtn.href = '#'; // Placeholder
+                    downloadBtn.href = '#';
                     downloadBtn.title = `İndirmek için tıklayın: ${filename}`;
                     downloadBtn.onclick = async () => {
                         try {
                             const blob = await contents.files[filename].async("blob");
-                            saveAs(blob, filename); // Uses FileSaver.js to trigger download
-                            return false; // Prevent default link behavior
+                            saveAs(blob, filename);
+                            return false;
                         } catch (downloadError) {
                             console.error("Error downloading file from ZIP:", downloadError);
                             showMessage(`'${filename}' indirilirken hata oluştu: ${downloadError.message}`, "error");
@@ -257,7 +290,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (fileCount === 0) {
                 zipFileListUl.innerHTML = '<li>Bu ZIP dosyası boş veya sadece klasör içeriyor.</li>';
             }
-            // No single downloadLink for the whole ZIP, individual links are provided.
         } catch (error) {
             console.error("ZIP processing error:", error);
             showMessage("ZIP dosyası açılamadı. Geçerli bir ZIP dosyası olduğundan emin olun veya bozuk olabilir.", "error");
@@ -269,17 +301,16 @@ document.addEventListener('DOMContentLoaded', () => {
     async function convertFileToBase64(file) {
         try {
             const reader = new FileReader();
-            // Using a Promise to handle FileReader's async nature
             const base64Promise = new Promise((resolve, reject) => {
                 reader.onload = (e) => resolve(e.target.result);
                 reader.onerror = (e) => reject(reader.error);
-                reader.readAsDataURL(file); // Reads any file type as data URL (Base64 encoded)
+                reader.readAsDataURL(file);
             });
 
             const dataURL = await base64Promise;
-            const base64String = dataURL.split(',')[1]; // Get only the Base64 part
+            const base64String = dataURL.split(',')[1];
 
-            textOutputArea.style.display = 'block'; // Show text output area
+            textOutputArea.style.display = 'block';
             textOutput.value = base64String;
 
             const blob = new Blob([base64String], { type: 'text/plain' });
@@ -287,7 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             downloadLink.href = URL.createObjectURL(blob);
             downloadLink.download = `${originalFileName}_base64.txt`;
-            downloadLink.style.display = 'inline-block'; // Make download link visible
+            downloadLink.style.display = 'inline-block';
         } catch (error) {
             console.error("Base64 encoding error:", error);
             showMessage(`Dosya Base64'e dönüştürülürken hata oluştu: ${error.message}`, "error");
@@ -302,19 +333,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const textPromise = new Promise((resolve, reject) => {
                 reader.onload = (e) => resolve(e.target.result);
                 reader.onerror = (e) => reject(reader.error);
-                reader.readAsText(file); // Read the file as plain text (expecting Base64 string)
+                reader.readAsText(file);
             });
 
             const base64Content = await textPromise;
 
-            // Basic validation for Base64 format (optional but good practice)
-            if (!/^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(base64Content.trim())) {
-                throw new Error("Girdi geçerli bir Base64 metni gibi görünmüyor.");
+            if (!base64Content.trim().match(/^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/)) {
+                throw new Error("Girdi geçerli bir Base64 metni gibi görünmüyor. Lütfen sadece Base64 stringi içeren bir dosya yükleyin.");
             }
 
-            const decodedText = atob(base64Content.trim()); // Decode the Base64 string
+            const decodedText = atob(base64Content.trim());
 
-            textOutputArea.style.display = 'block'; // Show text output area
+            textOutputArea.style.display = 'block';
             textOutput.value = decodedText;
 
             const blob = new Blob([decodedText], { type: 'text/plain' });
@@ -322,7 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             downloadLink.href = URL.createObjectURL(blob);
             downloadLink.download = `${originalFileName}_decoded.txt`;
-            downloadLink.style.display = 'inline-block'; // Make download link visible
+            downloadLink.style.display = 'inline-block';
 
         } catch (error) {
             console.error("Base64 decoding error:", error);
