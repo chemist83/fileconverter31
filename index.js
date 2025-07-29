@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal File Converter (Client-Side)</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Evrensel Dosya Dönüştürücü (Tarayıcı Tabanlı)</h1>
+
+        <div class="input-section">
+            <input type="file" id="fileInput" accept="*/*">
+            <label for="fileInput" class="upload-button">Dosya Seç</label>
+            <p id="selectedFileName">Henüz dosya seçilmedi.</p>
+        </div>
+
+        <div class="conversion-section">
+            <label for="conversionType">Dönüştürme Tipi:</label>
+            <select id="conversionType" disabled>
+                <option value="">Lütfen Dosya Seçin</option>
+                </select>
+            <button id="performConversion" disabled>Dönüştür / İşlem Yap</button>
+        </div>
+
+        <div id="resultArea" class="result-area" style="display: none;">
+            <h2>Sonuç:</h2>
+            <div id="imagePreviewContainer" style="display: none;">
+                <h3>Görsel Önizleme:</h3>
+                <img id="imagePreview" src="" alt="Görsel Önizleme" style="max-width: 100%; height: auto;">
+                <canvas id="imageCanvas" style="display: none;"></canvas>
+            </div>
+            <div id="zipContentList" class="zip-content-list" style="display: none;">
+                <h3>ZIP İçeriği:</h3>
+                <ul id="zipFileList"></ul>
+            </div>
+            <div id="textOutputArea" style="display: none;">
+                <h3>Metin Çıktısı:</h3>
+                <textarea id="textOutput" rows="10" readonly></textarea>
+            </div>
+            <a id="downloadLink" download="converted_file" style="display: none;">Dönüştürülen/İşlenen Dosyayı İndir</a>
+        </div>
+
+        <div id="message" class="message" style="display: none;"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
