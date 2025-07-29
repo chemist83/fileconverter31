@@ -2,7 +2,7 @@ body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     display: flex;
     justify-content: center;
-    align-items: flex-start;
+    align-items: flex-start; /* Align to top */
     min-height: 100vh;
     background-color: #f4f7f6;
     margin: 20px;
@@ -25,12 +25,22 @@ h1 {
     font-size: 2.2em;
 }
 
-.input-section, .conversion-section {
+.card {
     margin-bottom: 25px;
     padding: 20px;
     border: 1px solid #e0e0e0;
     border-radius: 8px;
     background-color: #fdfdfd;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.card h2 {
+    color: #007bff;
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 1.5em;
+    border-bottom: 2px solid #e0e0e0;
+    padding-bottom: 10px;
 }
 
 #fileInput {
@@ -60,13 +70,20 @@ h1 {
 
 .conversion-section {
     display: flex;
+    flex-direction: column; /* Stack elements vertically */
     justify-content: center;
     align-items: center;
     gap: 15px;
-    flex-wrap: wrap;
+}
+
+.conversion-section label {
+    font-weight: bold;
+    font-size: 1.1em;
 }
 
 select#conversionType {
+    width: 100%; /* Make select full width */
+    max-width: 300px; /* Limit max width */
     padding: 10px 15px;
     border-radius: 6px;
     border: 1px solid #ddd;
@@ -78,7 +95,6 @@ select#conversionType {
     background-position: right 10px center;
     background-size: 15px;
     cursor: pointer;
-    min-width: 180px;
 }
 
 button#performConversion {
@@ -104,16 +120,10 @@ button#performConversion[disabled] {
 }
 
 .result-area {
-    border-top: 1px solid #eee;
-    padding-top: 30px;
-    margin-top: 30px;
     text-align: left;
 }
 
-.result-area h2 {
-    color: #007bff;
-    margin-bottom: 20px;
-    font-size: 1.5em;
+.result-area h2, .result-area h3 {
     text-align: center;
 }
 
@@ -121,20 +131,13 @@ button#performConversion[disabled] {
     text-align: center;
     margin-bottom: 20px;
 }
-#imagePreviewContainer h3 {
-    margin-top: 0;
-    color: #333;
-    font-size: 1.2em;
-    text-align: center;
-    margin-bottom: 15px;
-}
-
 
 #imagePreview {
     border: 1px solid #ddd;
     border-radius: 8px;
     max-height: 300px;
     object-fit: contain;
+    width: auto; /* Ensure image scales correctly */
 }
 
 #zipContentList {
@@ -165,6 +168,7 @@ button#performConversion[disabled] {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap; /* Allow wrapping for long filenames */
 }
 
 #zipFileList li:last-child {
@@ -175,6 +179,7 @@ button#performConversion[disabled] {
     color: #007bff;
     text-decoration: none;
     font-weight: bold;
+    word-break: break-all; /* Break long words */
 }
 
 #zipFileList li a:hover {
@@ -205,10 +210,10 @@ button#performConversion[disabled] {
     font-family: monospace;
     font-size: 0.9em;
     resize: vertical;
+    box-sizing: border-box; /* Include padding/border in width */
 }
 
-
-#downloadLink {
+.download-button { /* Styled as a button, not just a link */
     display: inline-block;
     background-color: #17a2b8;
     color: white;
@@ -220,7 +225,7 @@ button#performConversion[disabled] {
     margin-top: 25px;
 }
 
-#downloadLink:hover {
+.download-button:hover {
     background-color: #138496;
 }
 
@@ -238,4 +243,4 @@ button#performConversion[disabled] {
     color: #155724;
     background-color: #d4edda;
     border-color: #c3e6cb;
-}
+    }
